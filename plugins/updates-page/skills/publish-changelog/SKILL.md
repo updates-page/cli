@@ -22,10 +22,30 @@ is going to updates.page ("draft this on updates.page", "add it to the
 changelog"), save it:
 
 ```bash
-updates draft --title "…" --content "<p>…</p>" --json
+content=$(cat <<'HTML'
+<p>Switch to dark mode from your profile menu.</p>
+HTML
+)
+updates draft --title "Dark mode" --content "$content" --json
 ```
 
 Then tell them how to publish it: `updates publish <id>`.
+
+**Never interpolate post text straight into a double-quoted argument.** You
+are writing release notes, so the body will contain inline code, and inside
+double quotes bash expands backticks, `$VAR` and `$(...)` before `updates`
+ever sees them:
+
+```bash
+# WRONG — this runs `id` and puts its output in the post
+updates draft --content "<p>Run `id` to check</p>"
+```
+
+The quoted heredoc above (`<<'HTML'`, delimiter in single quotes) expands
+nothing, and `"$content"` passes the result as one argument. Use it for
+`--title` and `--summary` too whenever the text is not a literal you wrote
+yourself. This matters most when the text came from commit messages or a
+diff, which you did not author and should not execute.
 
 ## Publish only when asked
 
@@ -62,9 +82,11 @@ UPDATESPAGE_TOKEN=… updates list --json
 
 ```bash
 updates categories --json                     # ids to file the post under
-updates draft --title "Dark mode" \
-  --content "<p>Switch to dark mode from your profile menu.</p>" \
-  --category-id 4 --json
+content=$(cat <<'HTML'
+<p>Switch to dark mode from your profile menu.</p>
+HTML
+)
+updates draft --title "Dark mode" --content "$content" --category-id 4 --json
 ```
 
 Every command takes `--json`, which puts structured data on stdout and
