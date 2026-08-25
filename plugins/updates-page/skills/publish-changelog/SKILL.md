@@ -9,18 +9,33 @@ A changelog post is **public, on the user's own domain, under their brand**.
 Treat publishing the way you would treat a deploy, not the way you would
 treat a commit.
 
-## Draft first
+## Show the text before you send anything
 
-Unless the user has clearly asked you to publish — "publish it", "announce
-it", "ship the changelog" — write a **draft** and show it to them:
+Write the post and **show it in your reply first**. Do not run a command yet.
+"Write me release notes" is a request for words, and this skill fires on that
+phrasing whether or not updates.page was mentioned — creating a draft in
+someone's account at that point is a change to their data they did not ask
+for.
+
+Once they want it saved, or once they have made clear from the start that it
+is going to updates.page ("draft this on updates.page", "add it to the
+changelog"), save it:
 
 ```bash
 updates draft --title "…" --content "<p>…</p>" --json
 ```
 
-Then tell them how to publish it: `updates publish <id>`. If you have been
-asked to publish but are unsure whether the change is ready to be public,
-`--private` publishes without putting it on the public changelog.
+Then tell them how to publish it: `updates publish <id>`.
+
+## Publish only when asked
+
+Publishing is a separate decision from saving. Unless the user has clearly
+asked for it — "publish it", "announce it", "ship the changelog" — stop at
+the draft. A changelog post is public the moment you publish it.
+
+If you have been asked to publish but are unsure whether the change is ready
+to be public, `--private` publishes without putting it on the public
+changelog.
 
 Never publish a post the user has not seen the text of.
 
@@ -56,9 +71,14 @@ Every command takes `--json`, which puts structured data on stdout and
 nothing else — progress, warnings and prompts go to stderr. Parse the JSON;
 do not scrape the human-readable output.
 
-Other flags worth knowing: `--summary` (feeds and embeds), `--url` (link out
-instead of a body), `--cover-image <path>`, `--at <ISO 8601>` to schedule.
-`updates <command> --help` has the rest.
+Other flags worth knowing: `--summary` (feeds and embeds), `--cover-image
+<path>`, `--at <ISO 8601>` to schedule. `updates <command> --help` has the
+rest.
+
+`--url` points the changelog entry at an external page — a blog post, a
+release on GitHub — instead of opening the entry itself. It does **not**
+replace the body: `--title` and `--content` are required either way, and
+omitting them exits `2`. Write the post as normal and add `--url` on top.
 
 ## Writing the post
 

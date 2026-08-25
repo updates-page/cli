@@ -71,9 +71,12 @@ Run `updates <command> --help` for the details of any one.
 | `--content <html>` | Post body (HTML or plain text) |
 | `--category-id <id>` | File under a category (ids from `updates categories`) |
 | `--summary <text>` | Short summary shown in feeds and embeds |
-| `--url <url>` | Link the post to an external page instead |
+| `--url <url>` | Point the entry at an external page instead of opening the post |
 | `--private` / `--public` | Hide from / show on the public changelog |
 | `--cover-image <path>` | Set the cover from a local png/jpg/gif/webp |
+
+`--title` and `--content` are required when creating a post, `--url` included
+— it redirects the entry, it does not stand in for the body.
 
 ### Scheduling
 
