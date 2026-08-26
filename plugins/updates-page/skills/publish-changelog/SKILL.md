@@ -63,12 +63,18 @@ Never publish a post the user has not seen the text of.
 
 ```bash
 updates whoami --json     # already signed in? this says who
-updates login             # opens a browser; falls back to a code to type
+updates login --device    # short code the user enters in a browser anywhere
 ```
 
-`updates login` needs a human. It prints a URL and a short code — **show
-them the URL** rather than describing it, and wait. On a machine with no
-browser it detects that and switches to the code-entry flow by itself.
+`updates login` needs a human. Ask for `--device`: it prints a URL and a
+short code — **show them both** rather than describing them — and waits.
+
+A bare `updates login` instead opens a browser **on the machine the command
+ran on** and prints no code. It only reaches for the code when it can tell
+there is no browser: over SSH, or on Linux with no display. On macOS and
+Windows it assumes there is one, so waiting for a code to relay would wait
+forever — and even when a browser does open, it opens where the command ran,
+which is not necessarily where your user is.
 
 Unattended (CI, a container), the token comes from the environment instead;
 never pass one as a command-line argument, where it lands in shell history
@@ -81,13 +87,23 @@ UPDATESPAGE_TOKEN=… updates list --json
 ## The loop
 
 ```bash
-updates categories --json                     # ids to file the post under
+updates categories --json     # {"ok":true,"categories":[{"id":4,"name":"New"}]}
+
+# Category ids belong to one account, so read one out of that listing
+# instead of hard-coding it. [0] is only an example — pick the category
+# that fits the post.
+category=$(updates categories --json | jq -r '.categories[0].id')
+
 content=$(cat <<'HTML'
 <p>Switch to dark mode from your profile menu.</p>
 HTML
 )
-updates draft --title "Dark mode" --content "$content" --category-id 4 --json
+updates draft --title "Dark mode" --content "$content" --category-id "$category" --json
 ```
+
+`--category-id` is optional — omit it and the post is filed under the
+account's first category. An id the account does not own is a `422`, which
+reaches you as exit code `7`; re-read the list rather than retrying.
 
 Every command takes `--json`, which puts structured data on stdout and
 nothing else — progress, warnings and prompts go to stderr. Parse the JSON;
@@ -127,7 +143,7 @@ Exit codes are stable and mean one thing each. Branch on them, and on
 | `1` | No more specific code applied | Read the message; do not retry blindly |
 | `2` | Usage — bad flag or argument | Fix the command; do not retry it unchanged |
 | `3` | Configuration problem | Run `updates doctor` |
-| `4` | Not signed in, or the token was refused | Run `updates login` — but see below |
+| `4` | Not signed in, or the token was refused | Run `updates login --device` — but see below |
 | `5` | Network or server error | Retry with backoff |
 | `6` | No such post/category | Re-read ids with `list` / `categories` |
 | `7` | Exists, but is in the wrong state (409/422) | Fix the state or the fields; retrying unchanged will fail again |
