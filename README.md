@@ -41,7 +41,10 @@ updates login --profile work
 updates list --profile work
 ```
 
-API access requires the Pro plan or above.
+API access is included for the first 14 days of a new account and continues
+on the Pro plan. If a command fails with a message about API access rather
+than about credentials, the trial has lapsed — the fix is
+[upgrading](https://app.updates.page/account/billing), not signing in again.
 
 ## Commands
 
@@ -103,11 +106,13 @@ Failures exit with a code that says what went wrong, so a script can tell
 | Code | Meaning |
 |---:|---|
 | `0` | Success |
+| `1` | Anything without a more specific code |
 | `2` | Usage — unknown flag, missing argument, bad value |
 | `3` | Configuration problem |
 | `4` | Not signed in, or the token was rejected |
 | `5` | Network failure or server error |
 | `6` | The thing you named does not exist |
+| `7` | It exists, but is in the wrong state for this operation |
 | `130` | Cancelled (Ctrl-C) |
 
 Under `--json`, a failure is JSON on stdout too:
