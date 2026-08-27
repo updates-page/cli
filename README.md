@@ -89,7 +89,10 @@ updates draft --title "Dark mode" --content "$content"
 | `--cover-image <path>` | Set the cover from a local png/jpg/gif/webp |
 
 `--url` sends readers elsewhere instead of opening the post — it doesn't
-replace the body. `--title` and `--content` are still required.
+replace the body. When you're **creating** a post, `--title` and `--content`
+are still required alongside it. Changing the URL on a post that already
+exists needs neither: `updates update <id> --url …` takes any subset of
+fields.
 
 ### Scheduling
 
