@@ -8,43 +8,53 @@ updates login
 updates publish --title "Dark mode" --content "<p>It's here.</p>"
 ```
 
+Needs Node `>=22.13 <23 || >=23.4`.
+
 ## Signing in
 
 ```bash
 updates login
 ```
 
-Opens your browser, you approve, done. On a machine without one — an SSH
-session, a container, CI — it detects that and shows a short code to enter
-from any other device instead.
-
-For unattended use — CI, a container — read a token from stdin so it never
-appears in your shell history or in the process list:
-
-```bash
-updates login --token - < token.txt
-# or
-UPDATESPAGE_TOKEN=... updates list
-```
+Opens your browser, you approve, done. Over SSH or anywhere without a browser
+it shows a short code to enter from another device instead. `updates login
+--device` forces that flow.
 
 Tokens are stored in `~/.updatespage/credentials.json` with `0600`
-permissions, and are only ever sent to the endpoint that issued them. Sign out
-with `updates logout`, which revokes the token server-side rather than only
-deleting the local copy — and signs out of exactly the credential you were
-using, so with `$UPDATESPAGE_TOKEN` set it revokes that one and leaves any
-saved profile untouched.
+permissions. `updates logout` revokes the token server-side, not just locally.
 
-Keep separate accounts side by side with `--profile`:
+For CI, put the token in the environment — never in an argument, where it
+lands in your shell history and the process list:
 
 ```bash
-updates login --profile work
-updates list --profile work
+UPDATESPAGE_TOKEN=… updates list
+updates login --token - < token.txt   # or read it from stdin
 ```
 
-API access is included for the first 14 days of a new account and continues
-on the Pro plan. If a command fails with a message about API access rather
-than about credentials, the trial has lapsed — the fix is
-[upgrading](https://app.updates.page/account/billing), not signing in again.
+Juggling accounts? `--profile work` on any command keeps them separate.
+
+API access is included for the first 14 days of a new account and continues on
+the Pro plan. A failure that mentions API access rather than credentials means
+the trial lapsed — [upgrade](https://app.updates.page/account/billing) rather
+than signing in again.
+
+## Writing a post
+
+`--content` takes an **HTML fragment**, not Markdown. Markdown doesn't error —
+it publishes literally, so your changelog shows `**Dark mode**` as raw
+characters on a live page. Use `<p>`, `<ul>`/`<li>`, `<strong>`, `<a href>`,
+`<code>`.
+
+For anything longer than a sentence, write it to a file first — this also
+avoids the shell expanding backticks and `$(…)` inside your release notes:
+
+```bash
+content=$(cat <<'HTML'
+<p>Dark mode is in Settings, and follows your OS by default.</p>
+HTML
+)
+updates draft --title "Dark mode" --content "$content"
+```
 
 ## Commands
 
@@ -55,53 +65,59 @@ than about credentials, the trial has lapsed — the fix is
 | `updates update <id>` | Change fields on an existing post |
 | `updates unpublish <id>` | Revert a published or scheduled post to a draft |
 | `updates delete <id>` | Delete a post permanently |
-| `updates list` | List your posts |
+| `updates list` | List your posts (`--status draft\|scheduled\|published`) |
 | `updates get <id>` | Show one post in full |
 | `updates categories` | List categories (`create`, `update`, `delete` too) |
 | `updates upload <file>` | Upload an image and print its URL |
 | `updates login` / `logout` / `whoami` | Sign in, out, and check who you are |
 | `updates doctor` | Show the resolved setup and where each value came from |
 
-Run `updates <command> --help` for the details of any one.
+`updates <command> --help` has the details of any one.
 
 ### Post fields
 
-`publish`, `draft`, and `update` share these:
+`publish`, `draft` and `update` share these:
 
 | Flag | Effect |
 |---|---|
 | `--title <title>` | Post title |
-| `--content <html>` | Post body (HTML or plain text) |
+| `--content <html>` | Post body |
+| `--summary <text>` | One line, shown in feeds and embeds |
 | `--category-id <id>` | File under a category (ids from `updates categories`) |
-| `--summary <text>` | Short summary shown in feeds and embeds |
-| `--url <url>` | Link the post to an external page instead |
+| `--url <url>` | Point the entry at an external page |
 | `--private` / `--public` | Hide from / show on the public changelog |
 | `--cover-image <path>` | Set the cover from a local png/jpg/gif/webp |
+
+`--url` sends readers elsewhere instead of opening the post — it doesn't
+replace the body. `--title` and `--content` are still required.
 
 ### Scheduling
 
 ```bash
-updates publish --title "Big launch" --content "<p>Soon</p>" --at 2026-09-01T09:00:00Z
 updates publish 123 --at 2026-09-01T09:00:00Z
 ```
 
-`--at` takes ISO 8601. A value without a timezone is read as local time.
-Parsing is deliberately strict: `2026-02-30` is rejected rather than quietly
-becoming March 2, and a time that falls in a daylight-saving gap is an error
-rather than a silent hour's shift.
+ISO 8601. A value with no timezone is read as local time, so pass an explicit
+`Z` or offset in CI. Impossible dates and daylight-saving gaps are rejected
+rather than silently shifted.
 
 ## Scripting
 
-Every command takes `--json`, which puts structured data on stdout and nothing
-else — progress, warnings and prompts all go to stderr:
+Every command takes `--json`: structured data on stdout, nothing else.
+Progress, warnings and prompts go to stderr.
 
 ```bash
 updates list --status draft --json | jq -r '.posts[].id'
 updates upload shot.png --json | jq -r .url
 ```
 
-Failures exit with a code that says what went wrong, so a script can tell
-"sign in again" from "the network is down":
+Failures are JSON too, so a script never has to parse English:
+
+```json
+{ "ok": false, "error": { "code": "auth.not_signed_in", "message": "…", "hint": "Run `updates login`." } }
+```
+
+And the exit code says which kind of failure it was:
 
 | Code | Meaning |
 |---:|---|
@@ -115,57 +131,20 @@ Failures exit with a code that says what went wrong, so a script can tell
 | `7` | It exists, but is in the wrong state for this operation |
 | `130` | Cancelled (Ctrl-C) |
 
-Under `--json`, a failure is JSON on stdout too:
+Other global flags: `-q/--quiet`, `-y/--yes`, `--verbose`, `--color` /
+`--no-color`, `--profile`, `--config`. Colour switches off automatically when
+output isn't a terminal, and `NO_COLOR` is honoured.
 
-```json
-{ "ok": false, "error": { "code": "auth.not_signed_in", "message": "…", "hint": "Run `updates login`." } }
-```
-
-Other global flags: `--quiet`, `--verbose`, `--no-color`, `--yes`, `--profile`.
-Colour is disabled automatically when the output is not a terminal, and
-`NO_COLOR` is honoured.
-
-## Upgrading from 1.3
-
-1.4 rewrites the internals, but every command that publishes or reads content
-is unchanged — same names, same flags, same arguments, and `updates categories`
-with no subcommand still lists. Two things changed:
-
-- **`updates config --api-key` is gone.** Use `updates login`, or
-  `updates login --token -` / `$UPDATESPAGE_TOKEN` for unattended use. A key
-  passed as a command-line argument is saved in your shell history and is
-  readable from the process list, which is the whole reason the browser flow
-  exists. A key saved by 1.3 in `~/.updatespage/config.json` is **not** read —
-  sign in again.
-- **`list` and `get` render differently.** `list` is a table; `get` is a field
-  list followed by the content. If you were scraping either, use `--json` —
-  that is what it is for, and it is the interface that will stay stable.
-
-Removing a command is a breaking change and would ordinarily mean 2.0. It is a
-minor here deliberately: 1.0 shipped days before this and the flag it replaces
-is one nobody should have been relying on, so a major version would announce a
-migration that does not exist and spend the number this CLI's first real
-stability commitment should get.
-
-Node `>=22.13 <23 || >=23.4` is required (1.3 needed 18+). The gap is real,
-not a typo: 23.0–23.3 are newer than the 22.13 floor and still lack what it
-provides.
-
-## Troubleshooting
+## Something wrong?
 
 ```bash
 updates doctor
 ```
 
-Prints the endpoint, config file, credential store and its permissions, and
-crucially *where each value came from* — a flag, an environment variable, or a
-default. Most "it works on my machine but not in CI" reports are answered by
-that one line. It exits non-zero if anything is wrong, so it also works as a
-health check.
-
-`--offline` skips only the request that confirms your token with the server;
-everything checkable locally, including whether you have a token at all, is
-still checked. `--config <path>` points it at a specific config file.
+Prints the endpoint, config file and credential store — and *where each value
+came from*, which is usually the answer to "works on my machine, not in CI".
+Exits non-zero if anything is broken, so it doubles as a health check.
+`--offline` skips the checks that need the network.
 
 ## Development
 
@@ -177,13 +156,14 @@ npm test           # node --test, in-process, no network
 npm run updates -- list   # run from source
 ```
 
-Tests drive the real entry point with fake streams and a temp home directory —
-nothing is spawned and nothing touches the network. `--base-url` (or
-`UPDATESPAGE_BASE_URL`) points the CLI at a local Rails app.
+Built with [cli-starter](https://github.com/stratuslabs/cli-starter): `src/core/`
+is that framework unmodified, `src/commands/` is this CLI.
 
-Built with [cli-starter](https://github.com/stratuslabs/cli-starter). `src/core/` is
-that framework, unmodified, so improvements can be pulled from upstream;
-`src/commands/` is this CLI.
+## Links
+
+[Documentation](https://docs.updates.page) ·
+[Using updates.page from an agent](https://docs.updates.page/agents) ·
+[Agent tooling](https://github.com/updates-page/agent-tooling)
 
 ## Licence
 
